@@ -119,3 +119,100 @@ public class WebTokenApi {
     }
 
 }
+------------------------------------------------------------------
+<dependency>
+			<groupId>org.bitbucket.b_c</groupId>
+			<artifactId>jose4j</artifactId>
+			<version>0.4.4</version>
+		</dependency>
+-----------------------------------------------------------------------------------------
+
+
+import java.io.IOException;
+import java.util.regex.Pattern;
+
+import javax.inject.Inject;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.annotation.WebFilter;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.core.Response;
+
+import practice1.WebTokenApi;
+
+/**
+ * Servlet Filter implementation class JWTFilter
+ */
+@WebFilter(urlPatterns = { "/*" })
+public class JWTFilter implements Filter {
+    
+    @Inject
+    WebTokenApi tokenApi;
+    /**
+     * Default constructor. 
+     */
+    public JWTFilter() {
+        // TODO Auto-generated constructor stub
+    }
+
+	/**
+	 * @see Filter#destroy()
+	 */
+	public void destroy() {
+		// TODO Auto-generated method stub
+	}
+
+	/**
+	 * @see Filter#doFilter(ServletRequest, ServletResponse, FilterChain)
+	 */
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+	 
+	    if(((HttpServletRequest) request).getRequestURI().contains("/api/user/login")){
+	        chain.doFilter(request, response);
+	    } else {
+	        try {
+	            String token = getToken((HttpServletRequest) request);
+	           if(tokenApi.validateJwt(token)){
+	               chain.doFilter(request, response);       
+	           } else {
+	               Response.status(401).entity("Unauthorized").build();
+	           }
+	           
+	        } catch (Exception e) {
+	            throw new ServletException("Unauthorized: Token validation failed", e);
+	        }
+	        
+	    }
+	}
+	  private String getToken(HttpServletRequest httpRequest) throws ServletException {
+	      String token = null;
+	        final String authorizationHeader = httpRequest.getHeader("Authorization");
+	        if (authorizationHeader == null) {
+	            throw new ServletException("Unauthorized: No Authorization header was found");
+	        }
+
+	        String[] parts = authorizationHeader.split(" ");
+	        if (parts.length != 2) {
+	            throw new ServletException("Unauthorized: Format is Authorization: Bearer [token]");
+	        }
+
+	        String scheme = parts[0];
+	        String credentials = parts[1];
+
+	        Pattern pattern = Pattern.compile("^Bearer$", Pattern.CASE_INSENSITIVE);
+	        if (pattern.matcher(scheme).matches()) {
+	            token = credentials;
+	        }
+	        return token;
+	    }
+	/**
+	 * @see Filter#init(FilterConfig)
+	 */
+	public void init(FilterConfig fConfig) throws ServletException {
+	}
+
+}
